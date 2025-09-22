@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snakes and Ladders Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .game-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+        
+        .game-title {
+            font-size: 2.5em;
+            color: #333;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        #gameCanvas {
+            border: 4px solid #333;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            margin: 20px 0;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+            gap: 20px;
+        }
+        
+        .player-info {
+            flex: 1;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 15px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .player-info.active {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            transform: scale(1.05);
+            transition: all 0.3s ease;
+        }
+        
+        .dice-container {
+            background: linear-gradient(135deg, #feca57, #ff9ff3);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        #rollDice {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        
+        #rollDice:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 7px 20px rgba(0,0,0,0.4);
+        }
+        
+        #rollDice:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .dice {
+            width: 60px;
+            height: 60px;
+            background: white;
+            border: 3px solid #333;
+            border-radius: 10px;
+            display: inline-block;
+            margin: 10px;
+            position: relative;
+            box-shadow: 0 5px 10px rgba(0,0,0,0.3);
+        }
+        
+        .dot {
+            width: 12px;
+            height: 12px;
+            background: #333;
+            border-radius: 50%;
+            position: absolute;
+        }
+        
+        .game-status {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            margin: 15px 0;
+        }
+        
+        .winner {
+            color: #ff6b6b;
+            font-size: 24px;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1 class="game-title">🐍 Snakes & Ladders 🪜</h1>
+        <canvas id="gameCanvas" width="600" height="600"></canvas>
+        
+        <div class="controls">
+            <div class="player-info" id="player1Info">
+                <h3>🔴 Player 1</h3>
+                <p>Position: <span id="player1Pos">0</span></p>
+            </div>
+            
+            <div class="dice-container">
+                <div class="dice" id="diceDisplay"></div>
+                <button id="rollDice">🎲 Roll Dice</button>
+                <div class="game-status" id="gameStatus">Player 1's Turn</div>
+            </div>
+            
+            <div class="player-info" id="player2Info">
+                <h3>🔵 Player 2</h3>
+                <p>Position: <span id="player2Pos">0</span></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class SnakesAndLadders {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.cellSize = 60;
+                this.currentPlayer = 1;
+                this.gameWon = false;
+                
+                this.players = {
+                    1: { position: 0, x: 0, y: 0, color: '#ff4757' },
+                    2: { position: 0, x: 0, y: 0, color: '#3742fa' }
+                };
+                
+                // Snakes and Ladders positions
+                this.snakes = {
+                    98: 78, 95: 75, 93: 73, 87: 24, 64: 60,
+                    62: 19, 56: 53, 49: 11, 47: 26, 16: 6
+                };
+                
+                this.ladders = {
+                    1: 38, 4: 14, 9: 21, 21: 42, 28: 84,
+                    36: 44, 51: 67, 71: 91, 80: 100
+                };
+                
+                this.init();
+                this.drawBoard();
+                this.updatePlayerPositions();
+            }
+            
+            init() {
+                document.getElementById('rollDice').addEventListener('click', () => this.rollDice());
+                this.updateActivePlayer();
+            }
+            
+            getCoordinates(position) {
+                if (position === 0) return { x: 0, y: 9 };
+                
+                position = position - 1;
+                const row = Math.floor(position / 10);
+                let col = position % 10;
+                
+                // Reverse direction for odd rows (snake pattern)
+                if (row % 2 === 1) {
+                    col = 9 - col;
+                }
+                
+                return {
+                    x: col,
+                    y: 9 - row
+                };
+            }
+            
+            drawBoard() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // Draw board background
+                const gradient = this.ctx.createLinearGradient(0, 0, 600, 600);
+                gradient.addColorStop(0, '#fff5f5');
+                gradient.addColorStop(1, '#f0f8ff');
+                this.ctx.fillStyle = gradient;
+                this.ctx.fillRect(0, 0, 600, 600);
+                
+                // Draw grid and numbers
+                for (let i = 0; i < 100; i++) {
+                    const coords = this.getCoordinates(i + 1);
+                    const x = coords.x * this.cellSize;
+                    const y = coords.y * this.cellSize;
+                    
+                    // Alternate cell colors
+                    this.ctx.fillStyle = (coords.x + coords.y) % 2 === 0 ? '#fff' : '#f0f0f0';
+                    this.ctx.fillRect(x, y, this.cellSize, this.cellSize);
+                    
+                    // Draw cell border
+                    this.ctx.strokeStyle = '#ddd';
+                    this.ctx.lineWidth = 1;
+                    this.ctx.strokeRect(x, y, this.cellSize, this.cellSize);
+                    
+                    // Draw cell number
+                    this.ctx.fillStyle = '#333';
+                    this.ctx.font = 'bold 14px Arial';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.fillText(i + 1, x + this.cellSize/2, y + 20);
+                }
+                
+                this.drawSnakesAndLadders();
+            }
+            
+            drawSnakesAndLadders() {
+                // Draw snakes
+                Object.keys(this.snakes).forEach(start => {
+                    const end = this.snakes[start];
+                    this.drawSnake(parseInt(start), end);
+                });
+                
+                // Draw ladders
+                Object.keys(this.ladders).forEach(start => {
+                    const end = this.ladders[start];
+                    this.drawLadder(parseInt(start), end);
+                });
+            }
+            
+            drawSnake(start, end) {
+                const startCoords = this.getCoordinates(start);
+                const endCoords = this.getCoordinates(end);
+                
+                const startX = startCoords.x * this.cellSize + this.cellSize/2;
+                const startY = startCoords.y * this.cellSize + this.cellSize/2;
+                const endX = endCoords.x * this.cellSize + this.cellSize/2;
+                const endY = endCoords.y * this.cellSize + this.cellSize/2;
+                
+                // Draw snake body
+                this.ctx.strokeStyle = '#27ae60';
+                this.ctx.lineWidth = 8;
+                this.ctx.lineCap = 'round';
+                
+                this.ctx.beginPath();
+                // Create curved snake body
+                const midX = (startX + endX) / 2 + (Math.random() - 0.5) * 60;
+                const midY = (startY + endY) / 2 + (Math.random() - 0.5) * 60;
+                this.ctx.moveTo(startX, startY);
+                this.ctx.quadraticCurveTo(midX, midY, endX, endY);
+                this.ctx.stroke();
+                
+                // Draw snake head
+                this.ctx.fillStyle = '#e74c3c';
+                this.ctx.beginPath();
+                this.ctx.arc(startX, startY, 12, 0, 2 * Math.PI);
+                this.ctx.fill();
+                
+                // Draw snake eyes
+                this.ctx.fillStyle = '#fff';
+                this.ctx.beginPath();
+                this.ctx.arc(startX - 4, startY - 4, 2, 0, 2 * Math.PI);
+                this.ctx.arc(startX + 4, startY - 4, 2, 0, 2 * Math.PI);
+                this.ctx.fill();
+                
+                // Draw snake tail
+                this.ctx.fillStyle = '#27ae60';
+                this.ctx.beginPath();
+                this.ctx.arc(endX, endY, 8, 0, 2 * Math.PI);
+                this.ctx.fill();
+                
+                // Add snake emoji
+                this.ctx.font = '20px Arial';
+                this.ctx.fillText('🐍', startX - 10, startY + 5);
+            }
+            
+            drawLadder(start, end) {
+                const startCoords = this.getCoordinates(start);
+                const endCoords = this.getCoordinates(end);
+                
+                const startX = startCoords.x * this.cellSize + this.cellSize/2;
+                const startY = startCoords.y * this.cellSize + this.cellSize/2;
+                const endX = endCoords.x * this.cellSize + this.cellSize/2;
+                const endY = endCoords.y * this.cellSize + this.cellSize/2;
+                
+                // Draw ladder sides
+                this.ctx.strokeStyle = '#8b4513';
+                this.ctx.lineWidth = 6;
+                this.ctx.lineCap = 'round';
+                
+                this.ctx.beginPath();
+                this.ctx.moveTo(startX - 8, startY);
+                this.ctx.lineTo(endX - 8, endY);
+                this.ctx.moveTo(startX + 8, startY);
+                this.ctx.lineTo(endX + 8, endY);
+                this.ctx.stroke();
+                
+                // Draw ladder rungs
+                this.ctx.lineWidth = 4;
+                const steps = Math.abs(end - start) / 10;
+                for (let i = 0; i <= steps; i++) {
+                    const progress = i / steps;
+                    const rungX1 = startX - 8 + (endX - startX) * progress;
+                    const rungY1 = startY + (endY - startY) * progress;
+                    const rungX2 = startX + 8 + (endX - startX) * progress;
+                    const rungY2 = startY + (endY - startY) * progress;
+                    
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(rungX1, rungY1);
+                    this.ctx.lineTo(rungX2, rungY2);
+                    this.ctx.stroke();
+                }
+                
+                // Add ladder emoji
+                this.ctx.font = '20px Arial';
+                this.ctx.fillStyle = '#8b4513';
+                this.ctx.fillText('🪜', startX - 10, startY + 30);
+            }
+            
+            drawPlayers() {
+                Object.keys(this.players).forEach(playerId => {
+                    const player = this.players[playerId];
+                    const coords = this.getCoordinates(player.position);
+                    
+                    // Offset players so they don't overlap
+                    const offsetX = playerId === '1' ? -10 : 10;
+                    const offsetY = playerId === '1' ? -10 : 10;
+                    
+                    const x = coords.x * this.cellSize + this.cellSize/2 + offsetX;
+                    const y = coords.y * this.cellSize + this.cellSize/2 + offsetY;
+                    
+                    // Draw player piece with shadow
+                    this.ctx.shadowColor = 'rgba(0,0,0,0.3)';
+                    this.ctx.shadowBlur = 5;
+                    this.ctx.shadowOffsetX = 2;
+                    this.ctx.shadowOffsetY = 2;
+                    
+                    this.ctx.fillStyle = player.color;
+                    this.ctx.beginPath();
+                    this.ctx.arc(x, y, 15, 0, 2 * Math.PI);
+                    this.ctx.fill();
+                    
+                    // Reset shadow
+                    this.ctx.shadowColor = 'transparent';
+                    
+                    // Draw player border
+                    this.ctx.strokeStyle = '#fff';
+                    this.ctx.lineWidth = 3;
+                    this.ctx.stroke();
+                    
+                    // Draw player number
+                    this.ctx.fillStyle = '#fff';
+                    this.ctx.font = 'bold 16px Arial';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.fillText(playerId, x, y + 5);
+                    
+                    player.x = x;
+                    player.y = y;
+                });
+            }
+            
+            updatePlayerPositions() {
+                this.drawBoard();
+                this.drawPlayers();
+            }
+            
+            rollDice() {
+                if (this.gameWon) return;
+                
+                const diceValue = Math.floor(Math.random() * 6) + 1;
+                this.showDice(diceValue);
+                
+                setTimeout(() => {
+                    this.movePlayer(this.currentPlayer, diceValue);
+                }, 1000);
+            }
+            
+            showDice(value) {
+                const diceElement = document.getElementById('diceDisplay');
+                diceElement.innerHTML = '';
+                
+                // Create dice dots pattern
+                const dotPatterns = {
+                    1: [[1,1]],
+                    2: [[0,0], [2,2]],
+                    3: [[0,0], [1,1], [2,2]],
+                    4: [[0,0], [0,2], [2,0], [2,2]],
+                    5: [[0,0], [0,2], [1,1], [2,0], [2,2]],
+                    6: [[0,0], [0,1], [0,2], [2,0], [2,1], [2,2]]
+                };
+                
+                // Animate dice roll
+                diceElement.style.transform = 'rotate(360deg)';
+                diceElement.style.transition = 'transform 0.5s ease';
+                
+                setTimeout(() => {
+                    dotPatterns[value].forEach(([x, y]) => {
+                        const dot = document.createElement('div');
+                        dot.className = 'dot';
+                        dot.style.left = (x * 18 + 9) + 'px';
+                        dot.style.top = (y * 18 + 9) + 'px';
+                        diceElement.appendChild(dot);
+                    });
+                    diceElement.style.transform = 'rotate(0deg)';
+                }, 500);
+            }
+            
+            movePlayer(playerId, steps) {
+                const player = this.players[playerId];
+                const newPosition = Math.min(player.position + steps, 100);
+                
+                // Animate movement
+                this.animateMovement(playerId, player.position, newPosition, () => {
+                    player.position = newPosition;
+                    
+                    // Check for snakes or ladders
+                    if (this.snakes[newPosition]) {
+                        setTimeout(() => {
+                            player.position = this.snakes[newPosition];
+                            this.updatePlayerPositions();
+                            this.showMessage(`Player ${playerId} hit a snake! 🐍 Sliding down to ${this.snakes[newPosition]}`);
+                        }, 500);
+                    } else if (this.ladders[newPosition]) {
+                        setTimeout(() => {
+                            player.position = this.ladders[newPosition];
+                            this.updatePlayerPositions();
+                            this.showMessage(`Player ${playerId} found a ladder! 🪜 Climbing up to ${this.ladders[newPosition]}`);
+                        }, 500);
+                    }
+                    
+                    // Check for win
+                    if (newPosition === 100) {
+                        this.gameWon = true;
+                        this.showWinner(playerId);
+                        return;
+                    }
+                    
+                    // Switch turn
+                    this.currentPlayer = this.currentPlayer === 1 ? 2 : 1;
+                    this.updateActivePlayer();
+                    
+                    // Update position display
+                    document.getElementById(`player${playerId}Pos`).textContent = player.position;
+                });
+            }
+            
+            animateMovement(playerId, startPos, endPos, callback) {
+                const steps = endPos - startPos;
+                let currentStep = 0;
+                
+                const animate = () => {
+                    if (currentStep < steps) {
+                        currentStep++;
+                        this.players[playerId].position = startPos + currentStep;
+                        this.updatePlayerPositions();
+                        setTimeout(animate, 200);
+                    } else {
+                        callback();
+                    }
+                };
+                
+                animate();
+            }
+            
+            updateActivePlayer() {
+                document.getElementById('player1Info').classList.toggle('active', this.currentPlayer === 1);
+                document.getElementById('player2Info').classList.toggle('active', this.currentPlayer === 2);
+                document.getElementById('gameStatus').textContent = `Player ${this.currentPlayer}'s Turn`;
+            }
+            
+            showMessage(message) {
+                document.getElementById('gameStatus').textContent = message;
+                setTimeout(() => {
+                    if (!this.gameWon) {
+                        document.getElementById('gameStatus').textContent = `Player ${this.currentPlayer}'s Turn`;
+                    }
+                }, 2000);
+            }
+            
+            showWinner(playerId) {
+                const statusElement = document.getElementById('gameStatus');
+                statusElement.textContent = `🎉 Player ${playerId} Wins! 🎉`;
+                statusElement.className = 'game-status winner';
+                document.getElementById('rollDice').disabled = true;
+            }
+        }
+        
+        // Start the game when page loads
+        window.addEventListener('load', () => {
+            new SnakesAndLadders();
+        });
+    </script>
+</body>
+</html>
